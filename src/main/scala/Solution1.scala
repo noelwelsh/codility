@@ -1,6 +1,6 @@
 package codility
 
-object Solution1 extends App {
+object Solution1 extends Solution {
 
   def solution(a: Array[Int]): Int = {
 

@@ -1,6 +1,6 @@
 # Incrementally Improving Code: A Case Study
 
-I'm mentoring a new developer who is applying for their first job. They were asked to complete some tasks on [Codility](https://www.codility.com/) as the first step of the interview process. To get used to the platform they did the first example task, and I advised them on some changes. Since this is the example task, not a task used for real interviews, and I think my advice might be useful to others, here is their starting point and my suggested changes.
+In this article I'm going to go through the process of improving some code. I'm mentoring a new developer who is applying for their first job. They were asked to complete some tasks on [Codility](https://www.codility.com/) as the first step of the interview process. To get used to the platform they did the first example task, and I advised them on some changes. I'm writing up here the progression from their code to (what I think is) better code. (Since this is the example task, not a task used to assess applicants, I think this is ok to publically post.)
 
 
 ## The Problem
@@ -8,22 +8,33 @@ I'm mentoring a new developer who is applying for their first job. They were ask
 First, the Codility problem:
 
 
-Write a function:
+> Write a function:
+> 
+> ``` scala
+> object Solution {
+  > def solution(a: Array[Int]): Int
+> }
+> ```
+> 
+> that, given an array A of N integers, returns the smallest positive integer (greater than 0) that does not occur in A.
+> 
+> For example, given A = [1, 3, 6, 4, 1, 2], the function should return 5. Given A = [1, 2, 3], the function should return 4. Given A = [−1, −3], the function should return 1.
+> 
+> Write an efficient algorithm for the following assumptions:
+> 
+> - N is an integer within the range [1..100,000];
+> - each element of array A is an integer within the range [−1,000,000..1,000,000].
+
+
+## Setup
+
+So that I could run all the variations through the same test harness I created the interface below. It's not part of the specification from Codility or the student's original code.
 
 ``` scala
-object Solution {
+trait Solution {
   def solution(a: Array[Int]): Int
 }
 ```
-
-that, given an array A of N integers, returns the smallest positive integer (greater than 0) that does not occur in A.
-
-For example, given A = [1, 3, 6, 4, 1, 2], the function should return 5. Given A = [1, 2, 3], the function should return 4. Given A = [−1, −3], the function should return 1.
-
-Write an efficient algorithm for the following assumptions:
-
-- N is an integer within the range [1..100,000];
-- each element of array A is an integer within the range [−1,000,000..1,000,000].
 
 
 ## Initial Solution
@@ -31,7 +42,7 @@ Write an efficient algorithm for the following assumptions:
 Here's the student's initial solution.
 
 ```scala
-object Solution1 extends App {
+object Solution1 extends Solution {
 
   def solution(a: Array[Int]): Int = {
 
@@ -59,11 +70,11 @@ There are several issues with the initial solution. Let's start with the easiest
 - `var` is not necessary
 - messy formatting
 
-These are fairly small points but they are easy for an interviewer to complain about. We don't want to give the company an easy reason to reject us!
+These are fairly small points but they are easy for an interviewer to complain about. A lot of jobs, particularly entry level jobs, receive many applicants and interviewers are often looking for reasons to reject candidates. We don't want to give them an easy reason to reject us!
 
 
 ``` scala
-object Solution2 extends App {
+object Solution2 extends Solution {
 
   def solution(a: Array[Int]): Int = {
     def findLowest(numbers: List[Int]): Int = 
@@ -99,7 +110,7 @@ Once we've setup the test suite we can proceed. I used [MUnit](https://scalameta
 We can make `findLowest` a total function by adding an extra parameter, which is the current guess for the lowest number. With this we can write `findLowest` as a standard structural recursion and the compiler will stop complaining about our incomplete match. Here's the code (written with Scala 3 syntax).
 
 ``` scala
-object Solution3 extends App {
+object Solution3 extends Solution {
   def solution(a: Array[Int]): Int = {
     def findLowest(result: Int, numbers: List[Int]): Int =
       numbers match {
@@ -118,4 +129,88 @@ object Solution3 extends App {
 
 ## Performance
 
-To be continued...
+The requirements state they want an "efficient algorithm". I don't think they really mean that, but optimizing code can be fun and in this case there are some easy wins to be had. I'm going to look at two types of optimization:
+
+- data representation optimization, where we change how we store data to be more efficient; and
+- algorithmic optimization, where we change the structure of the code to do less work.
+
+The code mostly uses the `List` datatype, which is a singly linked list. This is a poor choice for performance as it involves a lot of pointer chasing and random memory access is slow on modern computers. `List` is appropriate when want to reason about shared data, and hence use immutable data, but in this code the data is never shared outside the method so that is not a concern.
+
+From the algorithmic perspective we are doing a lot of work:
+
+- there is an [O(n)][big-o] traversal of the input to convert to a `List`;
+- the filtering operation is at least O(n) and may be more depending on how the filtered result is constructed;
+- sorting is O(n log n); and
+- the final traversal to find the lowest missing number is O(n).
+
+My first change is mostly concerned with data representation. By working purely with arrays we use a more cache-friendly data structure, and we can also sort in-place which avoids some allocation. Here's the code.
+
+``` scala
+import java.util.Arrays
+
+object Solution4 extends Solution {
+  def solution(a: Array[Int]): Int = {
+    def findLowest(result: Int, idx: Int, numbers: Array[Int]): Int = {
+      if idx == numbers.length then result
+      else if result == numbers(idx) then
+        findLowest(result + 1, idx + 1, numbers)
+      else result
+    }
+
+    val clean: Array[Int] = a.filter(_ > 0)
+
+    Arrays.sort(clean)
+    findLowest(1, 0, clean)
+  }
+}
+```
+
+The next step is mostly algorithmic optimization. We don't need to sort the array, or even filter it. All we need to do is construct a data structure that tells us what numbers are present. This requires just one O(n) traversal through the input. We only need a single bit to represent presence or absence for each positive integer. The specification tells us the input will not be higher than 1,000,000. Hence we can use a bit-set consuming no more than about 125kB, which should easily fit into the L2 cache and might even squeeze into L1 cache. Once we have constructed the bit set we need a single O(n) traversal to find the lowest missing number. Here's the code. Note I used `java.util.BitSet` instead of `scala.collection.mutable.BitSet` because it was a bit clearer on a quick glance which were the methods I wanted.
+
+``` scala
+import java.util.Arrays
+import java.util.BitSet
+
+object Solution5 extends Solution {
+  def solution(a: Array[Int]): Int = {
+    def populateBitSet(
+        bitSet: BitSet,
+        idx: Int,
+        numbers: Array[Int]
+    ): BitSet = {
+      if idx == numbers.length then bitSet
+      else {
+        val elt = numbers(idx)
+        if elt < 1 then populateBitSet(bitSet, idx + 1, numbers)
+        else {
+          bitSet.set(elt)
+          populateBitSet(bitSet, idx + 1, numbers)
+        }
+      }
+    }
+
+    val bitSet = populateBitSet(BitSet(1000000), 0, a)
+    val result = bitSet.nextClearBit(1)
+    result
+  }
+}
+```
+
+I setup a quick [JMH][jmh] benchmark to compare implementations. I was only looking for big improvements, so I'm only reporting results below for the first solution, and `Solution4` and `Solution5` above. As you can see the combination of data representation and algorithmic improvements yield a speed up a bit ten times compared to the original. That's pretty good for some fairly simple changes!
+
+
+    [info] CodilityBenchmark.benchSolution1  thrpt    3  741.060 ± 32.291  ops/s
+    [info] CodilityBenchmark.benchSolution4  thrpt    3  1956.945 ± 62.053  ops/s
+    [info] CodilityBenchmark.benchSolution5  thrpt    3  8406.225 ± 751.966  ops/s
+
+
+## Conclusions
+
+The process of improving the code was reasonably straight forward. The most important improvements, in my opinion, are the ones that we done first. As an interviewer I want to see code that pays attention to clarity, as I think that's one of the most important factors in successfully working with a large code base. The optimizations I performed require some level of knowledge of data structures, computer architecture, and algorithmic complexity. All these things should be covered in a computer science course. My optimizations don't require a deep level of knowledge of, for example x86-64 architecture. All these optimizations can be reasoned about with a fairly coarse machine model.
+
+All the code is on [Github][repo] if you want go further, or just see how I setup the tests and benchmarks. I hope it is useful!
+
+
+[jmh]: https://github.com/openjdk/jmh
+[big-o]: https://en.wikipedia.org/wiki/Big_O_notation
+[repo]: https://github.com/noelwelsh/codility

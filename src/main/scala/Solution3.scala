@@ -1,6 +1,6 @@
 package codility
 
-object Solution3 extends App {
+object Solution3 extends Solution {
   def solution(a: Array[Int]): Int = {
     def findLowest(result: Int, numbers: List[Int]): Int =
       numbers match {
