@@ -12,7 +12,7 @@ First, the Codility problem:
 > 
 > ``` scala
 > object Solution {
-  > def solution(a: Array[Int]): Int
+>   def solution(a: Array[Int]): Int
 > }
 > ```
 > 
@@ -28,7 +28,7 @@ First, the Codility problem:
 
 ## Setup
 
-So that I could run all the variations through the same test harness I created the interface below. It's not part of the specification from Codility or the student's original code.
+I created the interface below so that I could run all the variations through the same test harness. It's not part of the specification from Codility or the student's original code.
 
 ``` scala
 trait Solution {
@@ -39,7 +39,7 @@ trait Solution {
 
 ## Initial Solution
 
-Here's the student's initial solution.
+Here's the student's initial solution:
 
 ```scala
 object Solution1 extends Solution {
@@ -66,12 +66,13 @@ object Solution1 extends Solution {
 
 There are several issues with the initial solution. Let's start with the easiest ones:
 
-- bad naming (what does `tolis` mean?)
-- `var` is not necessary
+- confusing naming (what does `tolis` mean?)
+- `var` is not necessary (it could be a `val`)
 - messy formatting
 
 These are fairly small points but they are easy for an interviewer to complain about. A lot of jobs, particularly entry level jobs, receive many applicants and interviewers are often looking for reasons to reject candidates. We don't want to give them an easy reason to reject us!
 
+Here's the code after a quick clean up.
 
 ``` scala
 object Solution2 extends Solution {
@@ -93,10 +94,9 @@ object Solution2 extends Solution {
 ```
 
 
-## Partial and Total Functions
+## Testing the Solution
 
-Let's now move on to deeper issues. I don't like the implementation of `findLowest`. There is some input for which it will crash---namely the empty list. In FP jargon we'd say it is a *partial function*, not a *total function*. The emtpy list case checked before it's called, but it easy for future modifications to break this.  We could use, say, Cats' `NonEmptyList` type to express that this function only works with non-empty lists, but it's not really appropriate to add a dependency in this context. We can, instead, rewrite `findLowest` to be a total function. Before we do that, though, I want to create a test suite so we can be sure we don't break anything.
-
+Before we move on to deeper issues, I want to create a test suite so we can be sure we don't break anything during refactoring. 
 To test this function we could create a few hand-crafted cases, the programmer equivalent of banging together sticks to make fire, or we could generate test cases from a specification. A fairly simple way to generate test cases is:
 
 - create a many negative number as we like
@@ -106,6 +106,11 @@ To test this function we could create a few hand-crafted cases, the programmer e
 With this construction we know the result should be the number we removed.
 
 Once we've setup the test suite we can proceed. I used [MUnit](https://scalameta.org/munit/) and its ScalaCheck integration to do the above.
+
+
+## Partial and Total Functions
+
+Let's now move on to deeper issues. I don't like the implementation of `findLowest`. There is some input for which it will crash---namely the empty list. In FP jargon we'd say it is a *partial function*, not a *total function*. The emtpy list case checked before it's called, but it easy for future modifications to break this.  We could use, say, Cats' `NonEmptyList` type to express that this function only works with non-empty lists, but it's not really appropriate to add a dependency in this context. We can, instead, rewrite `findLowest` to be a total function. 
 
 We can make `findLowest` a total function by adding an extra parameter, which is the current guess for the lowest number. With this we can write `findLowest` as a standard structural recursion and the compiler will stop complaining about our incomplete match. Here's the code (written with Scala 3 syntax).
 
@@ -131,7 +136,7 @@ object Solution3 extends Solution {
 
 The requirements state they want an "efficient algorithm". I don't think they really mean that, but optimizing code can be fun and in this case there are some easy wins to be had. I'm going to look at two types of optimization:
 
-- data representation optimization, where we change how we store data to be more efficient; and
+- data representation, where we change how we store data to be more efficient; and
 - algorithmic optimization, where we change the structure of the code to do less work.
 
 The code mostly uses the `List` datatype, which is a singly linked list. This is a poor choice for performance as it involves a lot of pointer chasing and random memory access is slow on modern computers. `List` is appropriate when want to reason about shared data, and hence use immutable data, but in this code the data is never shared outside the method so that is not a concern.
@@ -196,7 +201,7 @@ object Solution5 extends Solution {
 }
 ```
 
-I setup a quick [JMH][jmh] benchmark to compare implementations. I was only looking for big improvements, so I'm only reporting results below for the first solution, and `Solution4` and `Solution5` above. As you can see the combination of data representation and algorithmic improvements yield a speed up a bit ten times compared to the original. That's pretty good for some fairly simple changes!
+I setup a quick [JMH][jmh] benchmark to compare implementations. I was only looking for big improvements, so I'm only reporting results below for the first solution, and `Solution4` and `Solution5` above. As you can see the combination of data representation and algorithmic improvements yield a speed up a bit over ten times compared to the original. That's pretty good for some fairly simple changes!
 
 
     [info] CodilityBenchmark.benchSolution1  thrpt    3  741.060 ± 32.291  ops/s
@@ -206,7 +211,7 @@ I setup a quick [JMH][jmh] benchmark to compare implementations. I was only look
 
 ## Conclusions
 
-The process of improving the code was reasonably straight forward. The most important improvements, in my opinion, are the ones that we done first. As an interviewer I want to see code that pays attention to clarity, as I think that's one of the most important factors in successfully working with a large code base. The optimizations I performed require some level of knowledge of data structures, computer architecture, and algorithmic complexity. All these things should be covered in a computer science course. My optimizations don't require a deep level of knowledge of, for example x86-64 architecture. All these optimizations can be reasoned about with a fairly coarse machine model.
+The process of improving the code was reasonably straight forward. The most important improvements, in my opinion, are the ones that were done first. As an interviewer I want to see code that pays attention to clarity, as I think that's one of the most important factors in successfully growing a large code base. The optimizations I performed require some level of knowledge of data structures, computer architecture, and algorithmic complexity. All these things should be covered in a computer science course but those who haven't studied CS can find equivalents online. My optimizations don't require a deep level of knowledge of, for example x86-64 architecture. All these optimizations can be reasoned about with a fairly coarse machine model.
 
 All the code is on [Github][repo] if you want go further, or just see how I setup the tests and benchmarks. I hope it is useful!
 
