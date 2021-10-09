@@ -1,4 +1,4 @@
-# Incrementally Improving Code: A Case Study
+# A Case Study in Incrementally Improving Code
 
 In this article I'm going to go through the process of improving some code. I'm mentoring a new developer who is applying for their first job. They were asked to complete some tasks on [Codility](https://www.codility.com/) as the first step of the interview process. To get used to the platform they did the first example task, and I advised them on some changes. I'm writing up here the progression from their code to (what I think is) better code. (Since this is the example task, not a task used to assess applicants, I think this is ok to publically post.)
 
